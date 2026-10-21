@@ -1,0 +1,111 @@
+idhu naan our online modenu include pannuren aprom client ip and port nu oru tab set pannuren ipo naan innoru pc la communication soft nu oru software ahh build panni adhu mula intha clien ip and portku datava send panni idhuadha automatic ahh read panni inadha softkana current process ahh automatic ahh run panna mudiuma with idhe feature oda konjam sollu machan
+
+--------------------------------------------------------------------------------------------------
+
+🏗️ Architecture Overview
+Other PC ("Communication Soft"): Acts as the TCP Client (or sender) that sends data (like barcode data, triggers, or command strings) over the network.
+
+Unga App (PDCA_Sender): Acts as the TCP Server (Listener). Ithu unga specified IP and Port-la background-la listen pannitey irukkum.
+
+Automatic Process: Vera PC-la irunthu data vantha odane, unga PDCA_Sender atha automatic-ah catch panni, BarcodeQueryService or unga core logic-ah trigger panni current process-ah run pannidum (manual click thevai illa!).
+
+🛠️ Step-by-Step Implementation Plan
+1. UI Changes (MainWindow.xaml)
+Oru pudhu Tab or Panel create pannalam (Online Mode nu).
+
+Athula:
+
+IP Address TextBox (Local PC IP or Auto-detect).
+
+Port TextBox (e.g., 8888 or any port).
+
+Start/Stop Server Button (Online Mode-ah enable/disable panna).
+
+Status Indicator (Connected / Listening status).
+
+2. Update TcpService.cs (TCP Listener Logic)
+Unga TcpService.cs la TcpListener use panni network connections-ah accept panna porom.
+
+Server start anathaum, oru background thread-la (or Task.Run) client connections-ah wait pannum.
+
+Vera PC-la irunthu Communication Soft data send pannum pothu, antha data-va TcpService read pannum.
+
+Data vanthathum oru Event (e.g., DataReceived) throw pannum.
+
+3. Automatic Process Execution in MainWindow.xaml.cs
+TcpService-oda DataReceived event-ah MainWindow-la subscribe pannikalam.
+
+Data vantha odane:
+
+Received data-va (string) parse pannum (e.g., Barcode or Command).
+
+BarcodeQueryService-ku anuppi response edukkum.
+
+UI-la results-ah display panni, template file (pdca_template.txt) load panni automatic-ah process-ah complete pannum.
+
+💻 Code Concept (Eppadi irukkum?)
+TcpService.cs (Server-side snippet):
+
+C#
+
+
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+
+public class TcpService
+{
+    private TcpListener _listener;
+    private bool _isRunning;
+    public event Action<string> DataReceived;
+
+    public void StartServer(string ipStr, int port)
+    {
+        IPAddress ip = IPAddress.Parse(ipStr);
+        _listener = new TcpListener(ip, port);
+        _listener.Start();
+        _isRunning = true;
+
+        Task.Run(async () =>
+        {
+            while (_isRunning)
+            {
+                try
+                {
+                    TcpClient client = await _listener.AcceptTcpClientAsync();
+                    _ = HandleClientAsync(client);
+                }
+                catch
+                {
+                    break;
+                }
+            }
+        });
+    }
+
+    private async Task HandleClientAsync(TcpClient client)
+    {
+        using (NetworkStream stream = client.GetStream())
+        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+        {
+            string data = await reader.ReadLineAsync();
+            if (!string.IsNullOrEmpty(data))
+            {
+                // Trigger event to MainWindow
+                DataReceived?.Invoke(data);
+            }
+        }
+    }
+
+    public void StopServer()
+    {
+        _isRunning = false;
+        _listener?.Stop();
+    }
+}
+Machan, intha feature-ah unga code-la implement panna, unga MainWindow.xaml and TcpService.cs code-ah epdi modify panrathu nu code snippet tharen.
+
+Ithu unga expectation-ku match aagutha? Illa innum enna detail thevai paduthu nu sollunga, code-ah modify pannidalam!
